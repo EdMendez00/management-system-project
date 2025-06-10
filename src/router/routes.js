@@ -7,6 +7,7 @@ const routes = [
       { path: 'empleados', component: () => import('pages/EmpleadosPage.vue') },
       { path: 'prestaciones', component: () => import('pages/PrestacionesPage.vue') },
       { path: 'ausencias', component: () => import('pages/AusenciasPage.vue') },
+      { path: 'boletapago', component: () => import('pages/BoletaPagoPage.vue') },
     ],
   },
 
