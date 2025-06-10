@@ -1,5 +1,5 @@
 <template>
-  <div class="boleta-container bg-white rounded-xl w-[800px] my-0 mx-auto q-pa-lg" ref="boletaRef">
+  <div class="boleta-container bg-white rounded-xl w-[790px] my-0 mx-auto q-pa-lg" ref="boletaRef">
     <!-- Header de la empresa -->
     <div class="company-header border-b-3 row q-mb-lg">
       <div class="company-logo flex items-center mr-5">
@@ -363,6 +363,9 @@ function formatPeriod(fechaPago) {
     box-shadow: none !important;
     border: 1px solid #ddd;
     page-break-inside: avoid;
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
   }
 
   .total-section {
@@ -376,5 +379,45 @@ function formatPeriod(fechaPago) {
     border: 1px solid #1976d2;
     color: #1976d2 !important;
   }
+
+  .company-header {
+    border-bottom: 2px solid #1976d2 !important;
+  }
+
+  .section-title {
+    border-left: 3px solid #1976d2 !important;
+  }
+
+  .payment-section {
+    background: #f9f9f9 !important;
+  }
+
+  .payment-category {
+    border: 1px solid #ddd !important;
+  }
+}
+
+/* Estilos específicos para PDF */
+.pdf-export {
+  background: white !important;
+  box-shadow: none !important;
+  border: none !important;
+  font-size: 12px !important;
+}
+
+.pdf-export .company-header {
+  border-bottom: 2px solid #1976d2 !important;
+}
+
+.pdf-export .total-section {
+  background: #f0f0f0 !important;
+  color: #333 !important;
+  border: 2px solid #1976d2 !important;
+}
+
+.pdf-export .total-amount {
+  background: white !important;
+  border: 1px solid #1976d2 !important;
+  color: #1976d2 !important;
 }
 </style>

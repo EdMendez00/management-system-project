@@ -53,7 +53,7 @@
 
     <!-- Dialog para mostrar comprobante -->
     <q-dialog v-model="dialogComprobante">
-      <q-card style="min-width: 600px; max-width: 900px">
+      <q-card style="min-width: 600px; max-width: 890px">
         <q-card-section class="row items-center q-pb-none">
           <div class="text-h6">Comprobante de Pago</div>
           <q-space />
@@ -77,7 +77,14 @@
             @click="imprimirComprobante"
             class="q-mr-sm"
           />
-          <q-btn label="Descargar PDF" icon="download" color="primary" @click="descargarPDF" />
+          <q-btn
+            label="Descargar PDF"
+            icon="download"
+            color="primary"
+            @click="descargarPDF"
+            :loading="generandoPDF"
+            :disable="generandoPDF"
+          />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -86,6 +93,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import html2pdf from 'html2pdf.js'
 import BoletaPagoComponent from '../components/BoletaPagoComponent.vue'
 
 // Datos de la tabla
@@ -197,6 +205,7 @@ const pagination = ref({
 const dialogComprobante = ref(false)
 const selectedBoleta = ref(null)
 const boletaComponentRef = ref(null)
+const generandoPDF = ref(false)
 
 // Función para cambiar estado de pago
 function toggleEstadoPago(boleta) {
@@ -215,22 +224,83 @@ function verComprobante(boleta) {
 
 // Función para imprimir
 function imprimirComprobante() {
-  // Crear una nueva ventana para impresión
-  const printWindow = window.open('', '_blank')
-  const boletaElement = boletaComponentRef.value?.$el || document.querySelector('.boleta-container')
+  if (!selectedBoleta.value) return
 
-  if (boletaElement) {
+  try {
+    // Obtener el elemento del componente de boleta
+    const boletaElement =
+      boletaComponentRef.value?.$el || document.querySelector('.boleta-container')
+
+    if (!boletaElement) {
+      alert('No se pudo encontrar el elemento de la boleta')
+      return
+    }
+
+    // Crear una nueva ventana para impresión
+    const printWindow = window.open('', '_blank', 'width=800,height=600')
+
+    if (!printWindow) {
+      alert(
+        'No se pudo abrir la ventana de impresión. Verifique que no esté bloqueada por el navegador.',
+      )
+      return
+    }
+
+    const empleadoNombre = selectedBoleta.value.nombreEmpleado || 'Empleado'
+
     printWindow.document.write(`
+      <!DOCTYPE html>
       <html>
         <head>
-          <title>Boleta de Pago - ${selectedBoleta.value.nombreEmpleado}</title>
+          <title>Boleta de Pago - ${empleadoNombre}</title>
+          <meta charset="UTF-8">
           <style>
-            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
-            * { box-sizing: border-box; }
-            .boleta-container { max-width: none !important; box-shadow: none !important; }
+            body {
+              margin: 0;
+              font-family: Arial, sans-serif;
+              background: white;
+            }
+            * {
+              box-sizing: border-box;
+            }
+            .boleta-container {
+              max-width: none !important;
+              box-shadow: none !important;
+              width: 100% !important;
+              margin: 0 !important;
+              border: 1px solid #ddd;
+            }
+            .total-section {
+              background: #f0f0f0 !important;
+              color: #333 !important;
+              border: 2px solid #1976d2 !important;
+            }
+            .total-amount {
+              background: white !important;
+              border: 1px solid #1976d2 !important;
+              color: #1976d2 !important;
+            }
+            .company-header {
+              border-bottom: 2px solid #1976d2 !important;
+            }
+            .section-title {
+              border-left: 3px solid #1976d2 !important;
+            }
+            .payment-section {
+              background: #f9f9f9 !important;
+            }
+            .payment-category {
+              border: 1px solid #ddd !important;
+            }
             @media print {
-              body { margin: 0; }
-              .boleta-container { border: 1px solid #ddd; }
+              body {
+                margin: 0;
+                padding: 10px;
+              }
+              .boleta-container {
+                border: 1px solid #ddd;
+                page-break-inside: avoid;
+              }
             }
           </style>
         </head>
@@ -239,25 +309,107 @@ function imprimirComprobante() {
         </body>
       </html>
     `)
+
     printWindow.document.close()
     printWindow.focus()
 
+    // Esperar a que se cargue el contenido antes de imprimir
     setTimeout(() => {
       printWindow.print()
-      printWindow.close()
-    }, 250)
+      // Cerrar la ventana después de imprimir (opcional)
+      setTimeout(() => {
+        printWindow.close()
+      }, 100)
+    }, 500)
+  } catch (error) {
+    console.error('Error al imprimir:', error)
+    alert(`Error al imprimir la boleta: ${error.message}`)
   }
 }
 
 // Función para descargar PDF
-function descargarPDF() {
-  console.log('Descargando PDF para:', selectedBoleta.value.nombreEmpleado)
+async function descargarPDF() {
+  if (!selectedBoleta.value || generandoPDF.value) return
 
-  const filename = `boleta_pago_${selectedBoleta.value.nombreEmpleado.replace(/\s+/g, '_')}_${selectedBoleta.value.fechaPago}.pdf`
+  generandoPDF.value = true
 
-  // En una implementación real, aquí usarías una librería como jsPDF o html2pdf
-  // Para este ejemplo, mostramos una notificación
-  alert(`Funcionalidad de PDF en desarrollo.\nSe descargaría: ${filename}`)
+  try {
+    // Obtener el elemento del componente de boleta
+    const boletaElement =
+      boletaComponentRef.value?.$el || document.querySelector('.boleta-container')
+
+    if (!boletaElement) {
+      throw new Error('No se pudo encontrar el elemento de la boleta')
+    }
+
+    // Crear una copia del elemento para modificar estilos sin afectar la vista
+    const clonedElement = boletaElement.cloneNode(true)
+
+    // Aplicar estilos específicos para PDF
+    clonedElement.style.cssText = `
+      background: white !important;
+      box-shadow: none !important;
+      border: 1px solid #ddd !important;
+      font-family: Arial, sans-serif !important;
+      width: 208mm !important;
+      max-width: none !important;
+      margin: 0 !important;
+    `
+
+    // Configuración para html2pdf
+    const options = {
+      margin: [1, 1, 1, 1], // top, left, bottom, right (en mm)
+      filename: `boleta_pago_${selectedBoleta.value.nombreEmpleado.replace(/\s+/g, '_')}_${selectedBoleta.value.fechaPago}.pdf`,
+      image: {
+        type: 'jpeg',
+        quality: 0.98,
+      },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        letterRendering: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait',
+        compress: true,
+      },
+      pagebreak: {
+        mode: ['avoid-all', 'css', 'legacy'],
+        before: '.page-break-before',
+        after: '.page-break-after',
+        avoid: '.page-break-avoid',
+      },
+    }
+
+    // Crear y agregar el elemento temporal al DOM
+    const tempContainer = document.createElement('div')
+    tempContainer.style.cssText = `
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+      width: 210mm;
+      background: white;
+    `
+    tempContainer.appendChild(clonedElement)
+    document.body.appendChild(tempContainer)
+
+    // Generar el PDF
+    await html2pdf().set(options).from(clonedElement).save()
+
+    // Limpiar
+    document.body.removeChild(tempContainer)
+
+    console.log('PDF generado exitosamente para:', selectedBoleta.value.nombreEmpleado)
+  } catch (error) {
+    console.error('Error al generar PDF:', error)
+    alert(`Error al generar el PDF: ${error.message}`)
+  } finally {
+    generandoPDF.value = false
+  }
 }
 </script>
 

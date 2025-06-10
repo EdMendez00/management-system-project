@@ -17,6 +17,7 @@
   "dependencies": {
     "@quasar/extras": "^1.16.4",
     "@tailwindcss/postcss": "^4.1.8",
+    "html2pdf.js": "^0.10.3",
     "quasar": "^2.16.0",
     "tailwindcss": "^4.1.8",
     "vue": "^3.4.18",
