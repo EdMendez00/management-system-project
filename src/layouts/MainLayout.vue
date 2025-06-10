@@ -43,22 +43,22 @@ const linksList = [
   {
     title: 'Inicio',
     icon: 'home',
-    link: 'https://quasar.dev',
+    link: '/',
   },
   {
     title: 'Empleados',
     icon: 'people',
-    link: 'https://github.com/quasarframework',
+    link: '/empleados',
   },
   {
     title: 'Prestaciones',
     icon: 'calculate',
-    link: 'https://chat.quasar.dev',
+    link: '/prestaciones',
   },
   {
     title: 'Ausencias',
     icon: 'calendar_today',
-    link: 'https://forum.quasar.dev',
+    link: '/ausencias',
   },
 ]
 
