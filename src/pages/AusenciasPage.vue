@@ -86,6 +86,14 @@
                 </q-btn>
               </q-td>
             </template>
+
+            <!-- Mensaje cuando no hay datos -->
+            <template v-slot:no-data>
+              <div class="full-width row flex-center text-grey-6 q-gutter-sm">
+                <q-icon size="2em" name="inbox" />
+                <span>No hay ausencias pendientes</span>
+              </div>
+            </template>
           </q-table>
         </div>
 
@@ -117,6 +125,14 @@
                   {{ props.row.estado }}
                 </q-chip>
               </q-td>
+            </template>
+
+            <!-- Mensaje cuando no hay datos -->
+            <template v-slot:no-data>
+              <div class="full-width row flex-center text-grey-6 q-gutter-sm">
+                <q-icon size="2em" name="history" />
+                <span>No hay historial de ausencias</span>
+              </div>
             </template>
           </q-table>
         </div>
@@ -215,20 +231,11 @@
         <div class="text-subtitle1 text-grey-6">Se registro la ausencia correctamente</div>
       </q-card>
     </q-dialog>
-
-    <!-- Mensaje de Error -->
-    <!-- <q-dialog v-model="dialogError">
-      <q-card class="text-center q-pa-lg" style="width: 340px; height: 180px; border-radius: 10px">
-        <q-icon name="cancel_" color="positive" size="90px" class="q-mb-sm" />
-        <div class="text-h6 text-positive text-weight-bold q-mb-xs">Registro Agregado</div>
-        <div class="text-subtitle1 text-grey-6">Se registro la ausencia correctamente</div>
-      </q-card>
-    </q-dialog> -->
   </q-page>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 // Estado de la aplicación
 const seccionActiva = ref('actuales')
@@ -245,13 +252,56 @@ const formulario = ref({
 })
 
 // Opciones para los selects
-const empleadosOptions = ref([
-  { id: 1, nombre: 'Juan Pérez González' },
-  { id: 2, nombre: 'María García López' },
-  { id: 3, nombre: 'Carlos Rodríguez Silva' },
-  { id: 4, nombre: 'Ana Martínez Ruiz' },
-  { id: 5, nombre: 'Luis Fernando Castro' },
-])
+const empleadosOptions = ref([])
+
+// Función para cargar empleados desde localStorage
+const cargarEmpleados = () => {
+  const empleadosGuardados = localStorage.getItem('empleados')
+  if (empleadosGuardados) {
+    const empleados = JSON.parse(empleadosGuardados)
+    empleadosOptions.value = empleados.map((emp) => ({
+      id: emp.id,
+      nombre: emp.nombre,
+    }))
+    console.log('Empleados cargados desde localStorage:', empleadosOptions.value)
+  } else {
+    console.log('No hay empleados en localStorage')
+    empleadosOptions.value = []
+  }
+}
+
+// Cargar empleados al montar el componente
+onMounted(() => {
+  cargarEmpleados()
+  cargarAusencias()
+})
+
+// Función para cargar ausencias desde localStorage
+const cargarAusencias = () => {
+  const ausenciasGuardadas = localStorage.getItem('ausencias')
+  if (ausenciasGuardadas) {
+    const todasAusencias = JSON.parse(ausenciasGuardadas)
+
+    // Separar ausencias actuales (pendientes) del historial
+    ausenciasActuales.value = todasAusencias.filter((a) => a.estado === 'Pendiente')
+    historialAusencias.value = todasAusencias.filter((a) => a.estado !== 'Pendiente')
+
+    console.log('Ausencias cargadas desde localStorage:', {
+      actuales: ausenciasActuales.value.length,
+      historial: historialAusencias.value.length,
+    })
+  } else {
+    console.log('No hay ausencias en localStorage')
+    ausenciasActuales.value = []
+    historialAusencias.value = []
+  }
+}
+
+// Función para guardar ausencias en localStorage
+const guardarAusencias = () => {
+  const todasAusencias = [...ausenciasActuales.value, ...historialAusencias.value]
+  localStorage.setItem('ausencias', JSON.stringify(todasAusencias))
+}
 
 const tiposAusencia = ref([
   'Permiso Personal',
@@ -264,67 +314,11 @@ const tiposAusencia = ref([
   'Otros',
 ])
 
-// Ausencias actuales (pendientes)
-const ausenciasActuales = ref([
-  {
-    id: 1,
-    empleado: 'Juan Pérez González',
-    tipo: 'Cita Médica',
-    fechaInicio: '2025-06-12',
-    fechaFin: '2025-06-12',
-    estado: 'Pendiente',
-    motivo: 'Consulta médica de rutina',
-  },
-  {
-    id: 2,
-    empleado: 'María García López',
-    tipo: 'Permiso Personal',
-    fechaInicio: '2025-06-15',
-    fechaFin: '2025-06-16',
-    estado: 'Pendiente',
-    motivo: 'Asuntos familiares urgentes',
-  },
-  {
-    id: 3,
-    empleado: 'Carlos Rodríguez Silva',
-    tipo: 'Incapacidad Médica',
-    fechaInicio: '2025-06-14',
-    fechaFin: '2025-06-18',
-    estado: 'Pendiente',
-    motivo: 'Recuperación post-operatoria',
-  },
-])
+// Ausencias actuales (pendientes) - inicializadas vacías
+const ausenciasActuales = ref([])
 
-// Historial de ausencias
-const historialAusencias = ref([
-  {
-    id: 4,
-    empleado: 'Ana Martínez Ruiz',
-    tipo: 'Vacaciones',
-    fechaInicio: '2025-05-20',
-    fechaFin: '2025-05-25',
-    estado: 'Aprobado',
-    motivo: 'Vacaciones programadas',
-  },
-  {
-    id: 5,
-    empleado: 'Luis Fernando Castro',
-    tipo: 'Cita Médica',
-    fechaInicio: '2025-05-18',
-    fechaFin: '2025-05-18',
-    estado: 'Rechazado',
-    motivo: 'No presentó documentación médica',
-  },
-  {
-    id: 6,
-    empleado: 'Juan Pérez González',
-    tipo: 'Permiso Personal',
-    fechaInicio: '2025-05-10',
-    fechaFin: '2025-05-11',
-    estado: 'Aprobado',
-    motivo: 'Trámites bancarios',
-  },
-])
+// Historial de ausencias - inicializado vacío
+const historialAusencias = ref([])
 
 // Configuración de columnas para ausencias actuales
 const columnasActuales = [
@@ -462,6 +456,9 @@ function aprobarAusencia(ausencia) {
   if (index > -1) {
     ausenciasActuales.value.splice(index, 1)
   }
+
+  // Guardar cambios en localStorage
+  guardarAusencias()
 }
 
 function rechazarAusencia(ausencia) {
@@ -474,6 +471,9 @@ function rechazarAusencia(ausencia) {
   if (index > -1) {
     ausenciasActuales.value.splice(index, 1)
   }
+
+  // Guardar cambios en localStorage
+  guardarAusencias()
 }
 
 function agregarAusencia() {
@@ -492,6 +492,9 @@ function agregarAusencia() {
 
   // Agregar a ausencias actuales
   ausenciasActuales.value.unshift(nuevaAusencia)
+
+  // Guardar en localStorage
+  guardarAusencias()
 
   // Cerrar dialog y mostrar confirmación
   cerrarDialog()
