@@ -25,13 +25,7 @@
         >
           <template v-slot:body-cell-acciones="props">
             <q-td :props="props">
-              <q-btn
-                flat
-                round
-                icon="edit"
-                color="primary"
-                @click="editarEmpleado(props.row)"
-              />
+              <q-btn flat round icon="edit" color="primary" @click="editarEmpleado(props.row)" />
               <q-btn
                 flat
                 round
@@ -124,7 +118,12 @@
         </q-card-section>
 
         <q-card-actions align="right">
-          <q-btn flat label="Cancelar" color="primary" @click="dialogConfirmacionEliminar = false" />
+          <q-btn
+            flat
+            label="Cancelar"
+            color="primary"
+            @click="dialogConfirmacionEliminar = false"
+          />
           <q-btn flat label="Eliminar" color="negative" @click="confirmarEliminar" />
         </q-card-actions>
       </q-card>
@@ -140,21 +139,20 @@
         </q-card-section>
       </q-card>
     </q-dialog>
-
   </q-page>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue'
 
 // Visibilidad de diálogos
-const dialogRegistrar = ref(false);
-const dialogConfirmacion = ref(false);
-const dialogConfirmacionEliminar = ref(false);
+const dialogRegistrar = ref(false)
+const dialogConfirmacion = ref(false)
+const dialogConfirmacionEliminar = ref(false)
 
 // Estado para editar o registrar
-const editando = ref(false);
-const empleadoEditandoId = ref(null);
+const editando = ref(false)
+const empleadoEditandoId = ref(null)
 
 // Datos del formulario para nuevo/editar empleado
 const formulario = ref({
@@ -165,7 +163,7 @@ const formulario = ref({
   puesto: '',
   telefono: '',
   salario: null,
-});
+})
 
 // Datos de empleados (ejemplo, en una aplicación real vendrían de una API)
 const empleados = ref([
@@ -176,7 +174,7 @@ const empleados = ref([
     departamento: 'Ventas',
     puesto: 'Gerente de Ventas',
     telefono: '(503) 7777-1111',
-    salario: 1500.00,
+    salario: 1500.0,
   },
   {
     id: 2,
@@ -185,7 +183,7 @@ const empleados = ref([
     departamento: 'Marketing',
     puesto: 'Especialista en Marketing',
     telefono: '(503) 6666-2222',
-    salario: 1200.00,
+    salario: 1200.0,
   },
   {
     id: 3,
@@ -194,9 +192,9 @@ const empleados = ref([
     departamento: 'Desarrollo',
     puesto: 'Desarrollador Senior',
     telefono: '(503) 8888-3333',
-    salario: 2000.00,
+    salario: 2000.0,
   },
-]);
+])
 
 // Definición de las columnas para la q-table
 const columns = [
@@ -251,18 +249,18 @@ const columns = [
     field: 'acciones',
     sortable: false,
   },
-];
+]
 
 // Paginación (ejemplo básico)
 const pagination = ref({
   rowsPerPage: 10,
-});
+})
 
 // Función para cerrar el diálogo y reiniciar el formulario
 function cerrarDialog() {
-  dialogRegistrar.value = false;
-  editando.value = false;
-  empleadoEditandoId.value = null;
+  dialogRegistrar.value = false
+  editando.value = false
+  empleadoEditandoId.value = null
   // Reiniciar formulario
   formulario.value = {
     id: null,
@@ -272,53 +270,52 @@ function cerrarDialog() {
     puesto: '',
     telefono: '',
     salario: null,
-  };
+  }
 }
 
 // Función para agregar o actualizar un empleado
 function agregarOActualizarEmpleado() {
   if (editando.value) {
-    const index = empleados.value.findIndex((e) => e.id === empleadoEditandoId.value);
+    const index = empleados.value.findIndex((e) => e.id === empleadoEditandoId.value)
     if (index > -1) {
-      empleados.value[index] = { ...formulario.value };
+      empleados.value[index] = { ...formulario.value }
     }
   } else {
     // Generar un ID único simple para el ejemplo
-    const nuevoId = Math.max(...empleados.value.map(e => e.id), 0) + 1;
-    empleados.value.unshift({ ...formulario.value, id: nuevoId });
+    const nuevoId = Math.max(...empleados.value.map((e) => e.id), 0) + 1
+    empleados.value.unshift({ ...formulario.value, id: nuevoId })
   }
-  cerrarDialog();
-  dialogConfirmacion.value = true; // Mostrar confirmación de éxito
+  cerrarDialog()
+  dialogConfirmacion.value = true // Mostrar confirmación de éxito
   setTimeout(() => {
-    dialogConfirmacion.value = false;
-  }, 2500);
+    dialogConfirmacion.value = false
+  }, 2500)
 }
 
 // Función para editar un empleado
 function editarEmpleado(empleado) {
-  editando.value = true;
-  empleadoEditandoId.value = empleado.id;
-  formulario.value = { ...empleado };
-  dialogRegistrar.value = true;
+  editando.value = true
+  empleadoEditandoId.value = empleado.id
+  formulario.value = { ...empleado }
+  dialogRegistrar.value = true
 }
 
 // Variables para eliminación
-const empleadoAEliminarId = ref(null);
+const empleadoAEliminarId = ref(null)
 
 // Función para abrir el diálogo de confirmación de eliminación
 function eliminarEmpleado(id) {
-  empleadoAEliminarId.value = id;
-  dialogConfirmacionEliminar.value = true;
+  empleadoAEliminarId.value = id
+  dialogConfirmacionEliminar.value = true
 }
 
 // Función para confirmar la eliminación
 function confirmarEliminar() {
-  empleados.value = empleados.value.filter((e) => e.id !== empleadoAEliminarId.value);
-  dialogConfirmacionEliminar.value = false;
-  empleadoAEliminarId.value = null;
+  empleados.value = empleados.value.filter((e) => e.id !== empleadoAEliminarId.value)
+  dialogConfirmacionEliminar.value = false
+  empleadoAEliminarId.value = null
   // Opcional: mostrar notificación de éxito en la eliminación
 }
-
 </script>
 
 <style lang="scss" scoped>
