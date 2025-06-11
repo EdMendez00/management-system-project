@@ -85,13 +85,13 @@
               filled
               v-model="formulario.telefono"
               label="Número de teléfono *"
-              mask="(###) ###-####"
+              mask="(###) ####-####"
               lazy-rules
               :rules="[(val) => (val && val.length > 0) || 'Por favor, ingrese el teléfono']"
             />
             <q-input
               filled
-              v-model="formulario.salario"
+              v-model.number="formulario.salario"
               label="Salario base *"
               type="number"
               lazy-rules
@@ -143,7 +143,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
 // Visibilidad de diálogos
 const dialogRegistrar = ref(false)
@@ -165,36 +165,8 @@ const formulario = ref({
   salario: null,
 })
 
-// Datos de empleados (ejemplo, en una aplicación real vendrían de una API)
-const empleados = ref([
-  {
-    id: 1,
-    nombre: 'Juan Pérez',
-    correo: 'juan.perez@example.com',
-    departamento: 'Ventas',
-    puesto: 'Gerente de Ventas',
-    telefono: '(503) 7777-1111',
-    salario: 1500.0,
-  },
-  {
-    id: 2,
-    nombre: 'María García',
-    correo: 'maria.garcia@example.com',
-    departamento: 'Marketing',
-    puesto: 'Especialista en Marketing',
-    telefono: '(503) 6666-2222',
-    salario: 1200.0,
-  },
-  {
-    id: 3,
-    nombre: 'Carlos López',
-    correo: 'carlos.lopez@example.com',
-    departamento: 'Desarrollo',
-    puesto: 'Desarrollador Senior',
-    telefono: '(503) 8888-3333',
-    salario: 2000.0,
-  },
-])
+// Datos de empleados (ahora se cargarán desde localStorage)
+const empleados = ref([])
 
 // Definición de las columnas para la q-table
 const columns = [
@@ -240,7 +212,11 @@ const columns = [
     align: 'right',
     field: 'salario',
     sortable: true,
-    format: (val) => `$${val.toFixed(2)}`,
+    format: (val) => {
+      // Asegurarnos que val es un número
+      const num = Number(val)
+      return isNaN(num) ? '$0.00' : `$${num.toFixed(2)}`
+    },
   },
   {
     name: 'acciones',
@@ -251,10 +227,60 @@ const columns = [
   },
 ]
 
-// Paginación (ejemplo básico)
+// Paginación
 const pagination = ref({
   rowsPerPage: 10,
 })
+
+// Cargar empleados desde localStorage al iniciar
+onMounted(() => {
+  cargarEmpleados()
+})
+
+// Función para cargar empleados desde localStorage
+function cargarEmpleados() {
+  const empleadosGuardados = localStorage.getItem('empleados')
+  if (empleadosGuardados) {
+    empleados.value = JSON.parse(empleadosGuardados)
+  } else {
+    // Datos iniciales si no hay nada en localStorage
+    empleados.value = [
+      {
+        id: 1,
+        nombre: 'Juan Pérez',
+        correo: 'juan.perez@example.com',
+        departamento: 'Ventas',
+        puesto: 'Gerente de Ventas',
+        telefono: '(503) 7777-1111',
+        salario: 1500.0,
+      },
+      {
+        id: 2,
+        nombre: 'María García',
+        correo: 'maria.garcia@example.com',
+        departamento: 'Marketing',
+        puesto: 'Especialista en Marketing',
+        telefono: '(503) 6666-2222',
+        salario: 1200.0,
+      },
+      {
+        id: 3,
+        nombre: 'Carlos López',
+        correo: 'carlos.lopez@example.com',
+        departamento: 'Desarrollo',
+        puesto: 'Desarrollador Senior',
+        telefono: '(503) 8888-3333',
+        salario: 2000.0,
+      },
+    ]
+    guardarEmpleados()
+  }
+}
+
+// Función para guardar empleados en localStorage
+function guardarEmpleados() {
+  localStorage.setItem('empleados', JSON.stringify(empleados.value))
+}
 
 // Función para cerrar el diálogo y reiniciar el formulario
 function cerrarDialog() {
@@ -275,21 +301,40 @@ function cerrarDialog() {
 
 // Función para agregar o actualizar un empleado
 function agregarOActualizarEmpleado() {
-  if (editando.value) {
-    const index = empleados.value.findIndex((e) => e.id === empleadoEditandoId.value)
-    if (index > -1) {
-      empleados.value[index] = { ...formulario.value }
+  try {
+    // Convertir salario a número
+    const datos = {
+      ...formulario.value,
+      salario: Number(formulario.value.salario),
     }
-  } else {
-    // Generar un ID único simple para el ejemplo
-    const nuevoId = Math.max(...empleados.value.map((e) => e.id), 0) + 1
-    empleados.value.unshift({ ...formulario.value, id: nuevoId })
+
+    if (editando.value) {
+      const index = empleados.value.findIndex((e) => e.id === empleadoEditandoId.value)
+      if (index > -1) {
+        empleados.value[index] = datos
+      }
+    } else {
+      // Generar un ID único simple
+      const nuevoId = Math.max(...empleados.value.map((e) => e.id), 0) + 1
+      empleados.value.unshift({ ...datos, id: nuevoId })
+    }
+
+    // Guardar en localStorage
+    guardarEmpleados()
+
+    // Mostrar confirmación
+    dialogConfirmacion.value = true
+
+    // Cerrar el diálogo de formulario
+    cerrarDialog()
+
+    // Ocultar la confirmación después de 2.5 segundos
+    setTimeout(() => {
+      dialogConfirmacion.value = false
+    }, 2500)
+  } catch (error) {
+    console.error('Error al guardar empleado:', error)
   }
-  cerrarDialog()
-  dialogConfirmacion.value = true // Mostrar confirmación de éxito
-  setTimeout(() => {
-    dialogConfirmacion.value = false
-  }, 2500)
 }
 
 // Función para editar un empleado
@@ -312,9 +357,12 @@ function eliminarEmpleado(id) {
 // Función para confirmar la eliminación
 function confirmarEliminar() {
   empleados.value = empleados.value.filter((e) => e.id !== empleadoAEliminarId.value)
+
+  // Guardar en localStorage después de eliminar
+  guardarEmpleados()
+
   dialogConfirmacionEliminar.value = false
   empleadoAEliminarId.value = null
-  // Opcional: mostrar notificación de éxito en la eliminación
 }
 </script>
 
