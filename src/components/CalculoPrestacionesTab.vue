@@ -74,6 +74,7 @@
         label="Calcular Prestacion"
         @click="calculatePrestacion"
         :disable="!selectedEmployee"
+        icon="calculate"
       />
     </q-card-section>
 
@@ -84,10 +85,11 @@
           <strong>Nombre:</strong> {{ selectedEmployeeDetails.nombre }}
         </div>
         <div class="col-xs-12 col-sm-4">
-          <strong>Salario Base:</strong> ${{ selectedEmployeeDetails.salarioBase }}
+          <strong>Salario Base:</strong> ${{ selectedEmployeeDetails.salario }}
         </div>
         <div class="col-xs-12 col-sm-4">
-          <strong>Fecha de Ingreso:</strong> {{ selectedEmployeeDetails.fechaIngreso }}
+          <strong>Fecha de Ingreso:</strong>
+          {{ selectedEmployeeDetails.fechaIngreso || 'No especificada' }}
         </div>
         <div class="col-xs-12 col-sm-4">
           <strong>Departamento:</strong> {{ selectedEmployeeDetails.departamento }}
@@ -122,35 +124,27 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { Notify } from 'quasar'
 import html2pdf from 'html2pdf.js'
 import BoletaPagoComponent from 'src/components/BoletaPagoComponent.vue'
 
-// Datos de ejemplo para empleados (reemplazar con datos reales de tu API)
-const allEmployees = ref([
-  {
-    label: 'Juan Perez M.',
-    value: '1',
-    nombre: 'Juan Pérez',
-    salarioBase: 1500,
-    fechaIngreso: '01/05/2020',
-    departamento: 'IT',
-    puesto: 'Desarrollador',
-  },
-  {
-    label: 'Maria Lopez S.',
-    value: '2',
-    nombre: 'Maria López',
-    salarioBase: 1200,
-    fechaIngreso: '15/03/2021',
-    departamento: 'HR',
-    puesto: 'Asistente',
-  },
-])
+// Cargar empleados desde localStorage
+const loadEmployees = () => {
+  const saved = localStorage.getItem('empleados')
+  return saved ? JSON.parse(saved) : []
+}
 
-const employeeOptions = ref([]) // Opciones formateadas para q-select
+// Cargar configuraciones desde localStorage
+const loadConfigurations = () => {
+  const saved = localStorage.getItem('configuraciones')
+  return saved ? JSON.parse(saved) : []
+}
 
+const allEmployees = ref([])
+const employeeOptions = ref([])
+const configurations = ref([])
 const selectedEmployee = ref(null)
-const selectedEmployeeDetails = ref(null) // Detalles del empleado seleccionado
+const selectedEmployeeDetails = ref(null)
 
 const calculationData = ref({
   horasExtrasDiurnas: 0,
@@ -166,19 +160,19 @@ const calculatedBoletaData = ref(null)
 const generandoPDF = ref(false)
 
 onMounted(() => {
-  // En un caso real, aquí harías una llamada a tu API para obtener los empleados
+  allEmployees.value = loadEmployees()
+  configurations.value = loadConfigurations()
   employeeOptions.value = allEmployees.value.map((emp) => ({
-    label: emp.label,
-    value: emp.value,
+    label: emp.nombre,
+    value: emp.id,
   }))
 })
 
 const fetchEmployeeDetails = () => {
   if (selectedEmployee.value) {
     selectedEmployeeDetails.value = allEmployees.value.find(
-      (emp) => emp.value === selectedEmployee.value,
+      (emp) => emp.id == selectedEmployee.value,
     )
-    // Reiniciar los campos de cálculo al cambiar de empleado
     calculationData.value = {
       horasExtrasDiurnas: 0,
       horasExtrasNocturnas: 0,
@@ -194,108 +188,279 @@ const fetchEmployeeDetails = () => {
 
 const calculatePrestacion = () => {
   if (!selectedEmployee.value) {
-    console.error('No se ha seleccionado ningún empleado.')
+    Notify.create({
+      message: 'Por favor seleccione un empleado',
+      color: 'negative',
+      icon: 'warning',
+    })
     return
   }
 
-  const baseSalary = selectedEmployeeDetails.value.salarioBase
-  const horasExtrasDiurnasMonto =
-    calculationData.value.horasExtrasDiurnas * 1.5 * (baseSalary / 30 / 8) // Ejemplo simple
-  const horasExtrasNocturnasMonto =
-    calculationData.value.horasExtrasNocturnas * 2.0 * (baseSalary / 30 / 8) // Ejemplo
-  const horasNocturnasMonto = calculationData.value.horasNocturnas * 0.25 * (baseSalary / 30 / 8) // Recargo nocturno
+  try {
+    // Función helper para obtener configuración por nombre
+    const getConfig = (nombre) => {
+      return configurations.value.find((config) => config.nombre === nombre && config.estado)
+    }
 
-  const subsidioAlimentacionMonto = calculationData.value.subsidioAlimentacion
-  const diasVacacionesMonto = (baseSalary / 30) * calculationData.value.diasVacaciones
-  const diasAguinaldoMonto = (baseSalary / 30) * calculationData.value.diasAguinaldo
+    const baseSalary = selectedEmployeeDetails.value.salario
+    const valorHorario = baseSalary / 30 / 8 // Valor por hora basado en 30 días y 8 horas diarias
 
-  // Deducciones
-  const isssEmpleadoMonto = baseSalary * 0.03
-  const afpEmpleadoMonto = baseSalary * 0.0725
-  const isrMonto = baseSalary * 0.1 // Ejemplo simple de ISR
+    // Obtener configuraciones dinámicas
+    const configHorasExtrasDiurnas = getConfig('Horas Extras Diurnas')
+    const configHorasExtrasNocturnas = getConfig('Horas Extras Nocturnas')
+    const configHorasNocturnas = getConfig('Horas Nocturnas')
+    const configSubsidioAlimentacion = getConfig('Subsidio por Alimentación')
+    const configVacaciones = getConfig('Vacaciones')
+    const configAguinaldo = getConfig('Aguinaldo')
 
-  // Aportes Patronales
-  const isssPatronalMonto = baseSalary * 0.075
-  const afpPatronalMonto = baseSalary * 0.0875
+    // Configuraciones de deducciones
+    const configISSS = getConfig('ISSS Empleado')
+    const configAFP = getConfig('AFP Empleado')
+    const configISR = getConfig('ISR')
 
-  const totalIngresos =
-    baseSalary +
-    horasExtrasDiurnasMonto +
-    horasExtrasNocturnasMonto +
-    horasNocturnasMonto +
-    subsidioAlimentacionMonto +
-    diasVacacionesMonto +
-    diasAguinaldoMonto
-  const totalDeducciones = isssEmpleadoMonto + afpEmpleadoMonto + isrMonto
-  const totalAportesPatronales = isssPatronalMonto + afpPatronalMonto
-  const montoADepositarAlEmpleado = totalIngresos - totalDeducciones
-  const montoADepositarEnPlanillaUnica = totalAportesPatronales // Puede variar según la lógica real
+    // Configuraciones de aportes patronales
+    const configISSSPatronal = getConfig('ISSS Patronal')
+    const configAFPPatronal = getConfig('AFP Patronal')
 
-  calculatedBoletaData.value = {
-    calculoNo: Math.floor(Math.random() * 100) + 1, // Número aleatorio
-    fecha: new Date().toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }),
-    periodo: 'Mayo de 2025', // O calcula el período real
-    salarioBaseMostrado: baseSalary,
-    informacionEmpleado: {
-      nombre: selectedEmployeeDetails.value.nombre,
-      id: selectedEmployee.value,
-      puesto: selectedEmployeeDetails.value.puesto,
-      salarioBase: selectedEmployeeDetails.value.salarioBase,
-      departamento: selectedEmployeeDetails.value.departamento,
-    },
-    conceptos: [
-      { concepto: 'Salario Base', cantidad: '-', monto: baseSalary },
-      {
+    // Cálculos de ingresos usando configuraciones dinámicas
+    let horasExtrasDiurnasMonto = 0
+    if (configHorasExtrasDiurnas && calculationData.value.horasExtrasDiurnas > 0) {
+      horasExtrasDiurnasMonto =
+        calculationData.value.horasExtrasDiurnas * configHorasExtrasDiurnas.valor * valorHorario
+    }
+
+    let horasExtrasNocturnasMonto = 0
+    if (configHorasExtrasNocturnas && calculationData.value.horasExtrasNocturnas > 0) {
+      horasExtrasNocturnasMonto =
+        calculationData.value.horasExtrasNocturnas * configHorasExtrasNocturnas.valor * valorHorario
+    }
+
+    let horasNocturnasMonto = 0
+    if (configHorasNocturnas && calculationData.value.horasNocturnas > 0) {
+      horasNocturnasMonto =
+        calculationData.value.horasNocturnas * configHorasNocturnas.valor * valorHorario
+    }
+
+    let subsidioAlimentacionMonto = 0
+    if (configSubsidioAlimentacion && calculationData.value.subsidioAlimentacion > 0) {
+      if (configSubsidioAlimentacion.unidad === '$') {
+        subsidioAlimentacionMonto = calculationData.value.subsidioAlimentacion
+      } else {
+        subsidioAlimentacionMonto = configSubsidioAlimentacion.valor
+      }
+    }
+
+    let diasVacacionesMonto = 0
+    if (configVacaciones && calculationData.value.diasVacaciones > 0) {
+      diasVacacionesMonto =
+        (baseSalary / 30) * calculationData.value.diasVacaciones * configVacaciones.valor
+    }
+
+    let diasAguinaldoMonto = 0
+    if (configAguinaldo && calculationData.value.diasAguinaldo > 0) {
+      diasAguinaldoMonto =
+        (baseSalary / 30) * calculationData.value.diasAguinaldo * configAguinaldo.valor
+    }
+
+    // Cálculos de deducciones usando configuraciones dinámicas
+    let isssEmpleadoMonto = 0
+    if (configISSS) {
+      isssEmpleadoMonto = baseSalary * (configISSS.valor / 100)
+    }
+
+    let afpEmpleadoMonto = 0
+    if (configAFP) {
+      afpEmpleadoMonto = baseSalary * (configAFP.valor / 100)
+    }
+
+    let isrMonto = 0
+    if (configISR) {
+      if (configISR.unidad === '%') {
+        isrMonto = baseSalary * (configISR.valor / 100)
+      } else {
+        isrMonto = configISR.valor
+      }
+    }
+
+    // Cálculos de aportes patronales usando configuraciones dinámicas
+    let isssPatronalMonto = 0
+    if (configISSSPatronal) {
+      isssPatronalMonto = baseSalary * (configISSSPatronal.valor / 100)
+    }
+
+    let afpPatronalMonto = 0
+    if (configAFPPatronal) {
+      afpPatronalMonto = baseSalary * (configAFPPatronal.valor / 100)
+    }
+
+    // Totales
+    const totalIngresos =
+      baseSalary +
+      horasExtrasDiurnasMonto +
+      horasExtrasNocturnasMonto +
+      horasNocturnasMonto +
+      subsidioAlimentacionMonto +
+      diasVacacionesMonto +
+      diasAguinaldoMonto
+    const totalDeducciones = isssEmpleadoMonto + afpEmpleadoMonto + isrMonto
+    const totalAportesPatronales = isssPatronalMonto + afpPatronalMonto
+    const montoADepositarAlEmpleado = totalIngresos - totalDeducciones
+
+    // Construir conceptos dinámicamente solo si tienen monto
+    const conceptos = [{ concepto: 'Salario Base', cantidad: '-', monto: baseSalary }]
+
+    if (horasExtrasDiurnasMonto > 0) {
+      conceptos.push({
         concepto: 'Horas Extras Diurnas',
         cantidad: calculationData.value.horasExtrasDiurnas,
         monto: horasExtrasDiurnasMonto,
-      },
-      {
+      })
+    }
+
+    if (horasExtrasNocturnasMonto > 0) {
+      conceptos.push({
         concepto: 'Horas Extras Nocturnas',
         cantidad: calculationData.value.horasExtrasNocturnas,
         monto: horasExtrasNocturnasMonto,
-      },
-      {
+      })
+    }
+
+    if (horasNocturnasMonto > 0) {
+      conceptos.push({
         concepto: 'Horas Nocturnas (Recargo)',
         cantidad: calculationData.value.horasNocturnas,
         monto: horasNocturnasMonto,
-      },
-      { concepto: 'Subsidio por Alimentación', cantidad: '-', monto: subsidioAlimentacionMonto },
-      {
+      })
+    }
+
+    if (subsidioAlimentacionMonto > 0) {
+      conceptos.push({
+        concepto: 'Subsidio por Alimentación',
+        cantidad: '-',
+        monto: subsidioAlimentacionMonto,
+      })
+    }
+
+    if (diasVacacionesMonto > 0) {
+      conceptos.push({
         concepto: 'Vacaciones',
         cantidad: calculationData.value.diasVacaciones,
         monto: diasVacacionesMonto,
-      },
-      {
+      })
+    }
+
+    if (diasAguinaldoMonto > 0) {
+      conceptos.push({
         concepto: 'Aguinaldo',
         cantidad: calculationData.value.diasAguinaldo,
         monto: diasAguinaldoMonto,
+      })
+    }
+
+    // Construir deducciones dinámicamente
+    const deducciones = []
+    if (isssEmpleadoMonto > 0) {
+      deducciones.push({
+        concepto: 'ISSS Empleado',
+        porcentaje: `${configISSS?.valor || 0}%`,
+        monto: isssEmpleadoMonto,
+      })
+    }
+
+    if (afpEmpleadoMonto > 0) {
+      deducciones.push({
+        concepto: 'AFP Empleado',
+        porcentaje: `${configAFP?.valor || 0}%`,
+        monto: afpEmpleadoMonto,
+      })
+    }
+
+    if (isrMonto > 0) {
+      deducciones.push({
+        concepto: 'ISR',
+        porcentaje: configISR?.unidad === '%' ? `${configISR.valor}%` : '-',
+        monto: isrMonto,
+      })
+    }
+
+    // Construir aportes patronales dinámicamente
+    const aportesPatronales = []
+    if (isssPatronalMonto > 0) {
+      aportesPatronales.push({
+        concepto: 'ISSS Patronal',
+        porcentaje: `${configISSSPatronal?.valor || 0}%`,
+        monto: isssPatronalMonto,
+      })
+    }
+
+    if (afpPatronalMonto > 0) {
+      aportesPatronales.push({
+        concepto: 'AFP Patronal',
+        porcentaje: `${configAFPPatronal?.valor || 0}%`,
+        monto: afpPatronalMonto,
+      })
+    }
+
+    calculatedBoletaData.value = {
+      calculoNo: Math.floor(Math.random() * 100) + 1,
+      fecha: new Date().toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }),
+      periodo: new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }),
+      salarioBaseMostrado: baseSalary,
+      informacionEmpleado: {
+        nombre: selectedEmployeeDetails.value.nombre,
+        id: selectedEmployee.value,
+        puesto: selectedEmployeeDetails.value.puesto,
+        salarioBase: selectedEmployeeDetails.value.salario, // Mantener como salarioBase para la boleta
+        departamento: selectedEmployeeDetails.value.departamento,
       },
-    ].filter((item) => item.monto > 0), // Filtra conceptos con monto 0
+      conceptos: conceptos,
+      deducciones: deducciones,
+      aportesPatronales: aportesPatronales,
+      totalIngresos: totalIngresos,
+      totalDeducciones: totalDeducciones,
+      totalAportesPatronales: totalAportesPatronales,
+      montoADepositarAlEmpleado: montoADepositarAlEmpleado,
+      montoADepositarEnPlanillaUnica: totalAportesPatronales,
+      estado: 'Pendiente',
+    }
 
-    deducciones: [
-      { concepto: 'ISSS Empleado', porcentaje: '3.0%', monto: isssEmpleadoMonto },
-      { concepto: 'AFP Empleado', porcentaje: '7.25%', monto: afpEmpleadoMonto },
-      { concepto: 'ISR', porcentaje: '-', monto: isrMonto },
-    ].filter((item) => item.monto > 0),
+    // Crear registro para el historial
+    const historialItem = {
+      id: Date.now(),
+      empleado: selectedEmployeeDetails.value.nombre,
+      tipo: 'Salario y Prestaciones',
+      fecha: calculatedBoletaData.value.fecha,
+      monto: montoADepositarAlEmpleado,
+      estado: 'Pendiente',
+      boletaDetails: { ...calculatedBoletaData.value },
+    }
 
-    aportesPatronales: [
-      { concepto: 'ISSS Patronal', porcentaje: '7.5%', monto: isssPatronalMonto },
-      { concepto: 'AFP Patronal', porcentaje: '8.75%', monto: afpPatronalMonto },
-    ].filter((item) => item.monto > 0),
+    // Guardar en localStorage
+    const historialActual = JSON.parse(localStorage.getItem('historialPrestaciones') || '[]')
+    historialActual.unshift(historialItem)
+    localStorage.setItem('historialPrestaciones', JSON.stringify(historialActual))
 
-    totalIngresos: totalIngresos,
-    totalDeducciones: totalDeducciones,
-    totalAportesPatronales: totalAportesPatronales,
-    montoADepositarAlEmpleado: montoADepositarAlEmpleado,
-    montoADepositarEnPlanillaUnica: montoADepositarEnPlanillaUnica,
+    // Notificación de éxito
+    Notify.create({
+      message: `Prestación calculada exitosamente para ${selectedEmployeeDetails.value.nombre}`,
+      color: 'positive',
+      icon: 'check_circle',
+      position: 'top',
+    })
+
+    showBoletaDialog.value = true
+  } catch (error) {
+    console.error('Error al calcular prestación:', error)
+    Notify.create({
+      message: 'Error al calcular prestación. Verifique los datos e intente nuevamente.',
+      color: 'negative',
+      icon: 'error',
+    })
   }
-
-  showBoletaDialog.value = true
 }
 
 // Función para imprimir

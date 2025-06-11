@@ -336,10 +336,6 @@ function formatDate(date) {
   border-bottom: 1px solid #f0f0f0;
 }
 
-.payment-items {
-  /* Elimina el flex-col si estaba aquí y causaba problemas */
-}
-
 .payment-item {
   display: flex;
   justify-content: space-between;

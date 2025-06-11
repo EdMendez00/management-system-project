@@ -1,6 +1,22 @@
 <template>
   <q-page class="q-pa-md">
-    <div class="row items-center justify-between q-mb-xl"> <h4 class="text-h4 text-weight-bold">Cálculo de Prestaciones Laborales</h4> <q-btn color="primary" icon="add" label="Agregar Prestación" @click="showAddPrestacionDialog = true" />
+    <div class="row items-center justify-between q-mb-xl">
+      <h4 class="text-h4 text-weight-bold">Cálculo de Prestaciones Laborales</h4>
+      <div class="row q-gutter-sm">
+        <q-btn
+          color="secondary"
+          icon="refresh"
+          label="Actualizar Datos"
+          @click="refreshAllTabs"
+          outline
+        />
+        <q-btn
+          color="primary"
+          icon="add"
+          label="Agregar Prestación"
+          @click="showAddPrestacionDialog = true"
+        />
+      </div>
     </div>
 
     <div class="w-180 q-mb-lg bg-[#eeeeee] q-pa-sm rounded-xl">
@@ -24,11 +40,11 @@
 
     <q-tab-panels v-model="tab" animated>
       <q-tab-panel name="calcular">
-        <CalculoPrestacionesTab />
+        <CalculoPrestacionesTab ref="historialTab" />
       </q-tab-panel>
 
       <q-tab-panel name="historial">
-        <HistorialCalculosTab />
+        <HistorialCalculosTab ref="historialComponent" />
       </q-tab-panel>
 
       <q-tab-panel name="configuracion">
@@ -37,13 +53,18 @@
     </q-tab-panels>
 
     <q-dialog v-model="showAddPrestacionDialog">
-      <q-card style="width: 700px; max-width: 80vw;">
+      <q-card style="width: 700px; max-width: 80vw">
         <q-card-section>
           <div class="text-h6">Agregar Nueva Prestación</div>
         </q-card-section>
 
         <q-card-section class="q-pt-none">
-          <q-input outlined v-model="newPrestacion.nombre" label="Nombre de la Prestación" class="q-mb-sm" />
+          <q-input
+            outlined
+            v-model="newPrestacion.nombre"
+            label="Nombre de la Prestación"
+            class="q-mb-sm"
+          />
           <q-select
             outlined
             v-model="newPrestacion.tipo"
@@ -51,7 +72,14 @@
             label="Tipo"
             class="q-mb-sm"
           />
-          <q-input outlined v-model="newPrestacion.valor" label="Valor" type="number" step="0.01" class="q-mb-sm" />
+          <q-input
+            outlined
+            v-model="newPrestacion.valor"
+            label="Valor"
+            type="number"
+            step="0.01"
+            class="q-mb-sm"
+          />
           <q-input outlined v-model="newPrestacion.unidad" label="Unidad" class="q-mb-sm" />
           <q-checkbox v-model="newPrestacion.activo" label="Activo" />
         </q-card-section>
@@ -62,40 +90,60 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
-
   </q-page>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import CalculoPrestacionesTab from 'src/components/CalculoPrestacionesTab.vue';
-import HistorialCalculosTab from 'src/components/HistorialCalculosTab.vue';
-import ConfiguracionPrestacionesTab from 'src/components/ConfiguracionPrestacionesTab.vue';
+import { ref } from 'vue'
+import CalculoPrestacionesTab from 'src/components/CalculoPrestacionesTab.vue'
+import HistorialCalculosTab from 'src/components/HistorialCalculosTab.vue'
+import ConfiguracionPrestacionesTab from 'src/components/ConfiguracionPrestacionesTab.vue'
 
-const tab = ref('calcular'); // Pestaña inicial
+const tab = ref('calcular')
+const historialComponent = ref(null)
 
-const showAddPrestacionDialog = ref(false);
+const refreshAllTabs = () => {
+  // Forzar recarga del historial si el componente está disponible
+  if (historialComponent.value && historialComponent.value.reloadHistory) {
+    historialComponent.value.reloadHistory()
+  }
+
+  // Mostrar notificación de actualización
+  console.log('Datos actualizados')
+}
+
+const showAddPrestacionDialog = ref(false)
 const newPrestacion = ref({
   nombre: '',
   tipo: '',
   valor: null,
   unidad: '',
   activo: true,
-});
+})
 
-// Lógica para agregar una nueva prestación (simulada por ahora)
+// Cargar prestaciones desde localStorage
+const loadPrestaciones = () => {
+  const saved = localStorage.getItem('prestaciones')
+  return saved ? JSON.parse(saved) : []
+}
+
+// Guardar prestaciones en localStorage
+const savePrestaciones = (prestaciones) => {
+  localStorage.setItem('prestaciones', JSON.stringify(prestaciones))
+}
+
 const addPrestacion = () => {
-  console.log('Nueva Prestación a agregar:', newPrestacion.value);
-  // Aquí deberías enviar esto a tu backend o gestionar la lógica real de añadir la prestación.
-  // Por ahora, solo cerramos el diálogo.
-  showAddPrestacionDialog.value = false;
-  // Resetear el formulario después de agregar
+  const prestaciones = loadPrestaciones()
+  prestaciones.push({ ...newPrestacion.value, id: Date.now() })
+  savePrestaciones(prestaciones)
+
+  showAddPrestacionDialog.value = false
   newPrestacion.value = {
     nombre: '',
     tipo: '',
     valor: null,
     unidad: '',
     activo: true,
-  };
-};
+  }
+}
 </script>
