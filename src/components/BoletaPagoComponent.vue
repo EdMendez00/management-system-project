@@ -1,5 +1,5 @@
 <template>
-  <div class="boleta-container bg-white rounded-xl w-[790px] my-0 mx-auto q-pa-lg" ref="boletaRef">
+  <div class="boleta-container bg-white rounded-xl my-0 mx-auto" ref="boletaRef">
     <div class="company-header border-b-3 row q-mb-lg">
       <div class="company-logo flex items-center mr-5">
         <q-img
@@ -62,7 +62,7 @@
         Detalles de Pago
       </div>
 
-      <div class="flex flex-row gap-4">
+      <div class="flex flex-col gap-4">
         <div class="payment-category q-mb-md">
           <div class="category-header">
             <q-icon name="trending_up" color="positive" class="q-mr-sm" />
@@ -100,16 +100,18 @@
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="flex flex-row gap-4 q-mt-md">
         <div class="payment-category q-mb-md">
           <div class="category-header">
             <q-icon name="paid" color="info" class="q-mr-sm" />
             <span class="text-weight-medium text-info">APORTES PATRONALES</span>
           </div>
           <div class="payment-items">
-            <div v-for="(item, index) in boletaData.aportesPatronales" :key="index" class="payment-item">
+            <div
+              v-for="(item, index) in boletaData.aportesPatronales"
+              :key="index"
+              class="payment-item"
+            >
               <span class="item-label">{{ item.concepto }} ({{ item.porcentaje }})</span>
               <span class="item-amount text-info">${{ formatCurrency(item.monto) }}</span>
             </div>
@@ -123,7 +125,6 @@
         </div>
       </div>
 
-
       <div class="total-section">
         <q-separator class="q-my-md" />
         <div class="total-final">
@@ -134,7 +135,9 @@
             </span>
           </div>
           <div class="total-item q-mt-sm">
-            <span class="total-label text-h6 text-weight-bold">MONTO A DEPOSITAR EN PLANILLA ÚNICA</span>
+            <span class="total-label text-h6 text-weight-bold"
+              >MONTO A DEPOSITAR EN PLANILLA ÚNICA</span
+            >
             <span class="total-amount text-h5 text-weight-bold text-white">
               ${{ formatCurrency(boletaData.montoADepositarEnPlanillaUnica) }}
             </span>
@@ -187,18 +190,11 @@
         </div>
       </div>
     </div>
-
-    <q-card-actions align="right" class="q-pa-md">
-      <q-btn color="grey" label="Cerrar" @click="$emit('close')" />
-      <q-btn color="blue" label="Imprimir" icon="print" @click="printBoleta" />
-      <q-btn color="primary" label="Descargar PDF" icon="download" @click="downloadPdf" />
-    </q-card-actions>
   </div>
 </template>
 
 <script setup>
-import { defineProps, defineEmits, computed, ref } from 'vue';
-import html2pdf from 'html2pdf.js'; // Necesitas instalar esta librería: npm install html2pdf.js
+import { defineProps, defineEmits, computed } from 'vue'
 
 // Definimos las props que recibirá el componente.
 // Ahora esperamos un 'boletaData' con la estructura de prestaciones.
@@ -228,31 +224,27 @@ const props = defineProps({
       montoADepositarEnPlanillaUnica: 0,
     }),
   },
-});
+})
 
 // Emits para cerrar el diálogo
-defineEmits(['close']); // <--- CORRECCIÓN APLICADA AQUÍ
-
-// Referencia al elemento HTML de la boleta para html2pdf
-const boletaRef = ref(null);
-
+defineEmits(['close'])
 
 // Computed property para mapear los nuevos datos a la estructura antigua del componente
 // Esto permite que las secciones de 'Información del Empleado' y 'Información Adicional'
 // que ya existían en tu componente sigan funcionando con las propiedades 'boleta.nombreEmpleado', etc.
 const mappedBoleta = computed(() => {
-  const infoEmp = props.boletaData.informacionEmpleado;
-  // Asumiendo que 'boletaData.estado' no está directamente en la prop,
-  // puedes decidir cómo determinar el estado de pago.
-  // Por ahora, lo pongo como 'Pagado' si hay un monto a depositar > 0, o puedes pasarlo como parte de boletaData
-  const estadoPago = props.boletaData.montoADepositarAlEmpleado > 0 ? 'Pagado' : 'Pendiente';
+  const infoEmp = props.boletaData.informacionEmpleado
+  // Use the estado from boletaData if available, otherwise calculate it
+  const estadoPago =
+    props.boletaData.estado ||
+    (props.boletaData.montoADepositarAlEmpleado > 0 ? 'Pagado' : 'Pendiente')
 
   return {
     id: infoEmp.id,
     nombreEmpleado: infoEmp.nombre,
     cargo: infoEmp.puesto, // Mapeamos 'puesto' a 'cargo'
     fechaPago: props.boletaData.fecha, // Usamos la fecha del cálculo como fecha de pago
-    estado: estadoPago, // Puedes definir cómo se determina el estado (e.g., 'Pendiente', 'Pagado')
+    estado: estadoPago,
     salarioBase: infoEmp.salarioBase,
     // Estas propiedades (bonificaciones, deducciones, totalPagar) ya no se usarán directamente
     // en las nuevas tablas de ingresos/deducciones, pero las mantengo por si las usas en otra parte.
@@ -260,18 +252,17 @@ const mappedBoleta = computed(() => {
     deducciones: props.boletaData.totalDeducciones, // Usa el total de deducciones
     totalPagar: props.boletaData.montoADepositarAlEmpleado, // El monto final a depositar
     periodoPago: props.boletaData.periodo, // Usamos el período del cálculo
-  };
-});
+  }
+})
 
 // Funciones de formateo (las que ya tenías)
 function formatCurrency(amount) {
-  // Asegúrate de que los valores sean números antes de formatear
-  const numAmount = parseFloat(amount);
-  if (isNaN(numAmount)) return 'N/A';
+  const numAmount = parseFloat(amount)
+  if (isNaN(numAmount)) return 'N/A'
   return new Intl.NumberFormat('es-CO', {
-    minimumFractionDigits: 2, // Ajusta a 2 decimales para dinero
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(numAmount);
+  }).format(numAmount)
 }
 
 function formatDate(date) {
@@ -279,37 +270,8 @@ function formatDate(date) {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-  }).format(date);
+  }).format(date)
 }
-
-// <--- SE ELIMINÓ LA FUNCIÓN formatPeriod AQUÍ
-
-
-// Funciones para imprimir y descargar PDF (estas también ya las tenías o similar)
-const printBoleta = () => {
-  window.print(); // Abre la ventana de impresión del navegador
-};
-
-const downloadPdf = () => {
-  // Asegurarse de que boletaRef.value exista
-  if (!boletaRef.value) {
-    console.error('Elemento de boleta no encontrado para PDF.');
-    return;
-  }
-
-  const element = boletaRef.value; // Usa la referencia reactiva al div
-  const filename = `Boleta_No_${props.boletaData.calculoNo}_${mappedBoleta.value.nombreEmpleado.replace(/\s/g, '_')}.pdf`;
-
-  const options = {
-    margin: [0.5, 0.5, 0.5, 0.5], // Top, Left, Bottom, Right (inches)
-    filename: filename,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true }, // useCORS es importante si tienes imágenes de otros dominios
-    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-  };
-
-  html2pdf().from(element).set(options).save();
-};
 </script>
 
 <style scoped>
@@ -364,7 +326,6 @@ const downloadPdf = () => {
   padding: 16px;
   margin-bottom: 12px;
   border: 1px solid #e0e0e0;
-  width: 340px; /* Ajusta este ancho si necesitas que sean más flexibles */
 }
 
 .category-header {
@@ -453,7 +414,8 @@ const downloadPdf = () => {
   body * {
     visibility: hidden;
   }
-  .boleta-container, .boleta-container * {
+  .boleta-container,
+  .boleta-container * {
     visibility: visible;
   }
   .boleta-container {
