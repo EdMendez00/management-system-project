@@ -2,10 +2,21 @@
   <q-page class="q-pa-lg">
     <!-- Título principal -->
     <div class="q-mb-lg">
-      <h3 class="text-h4 text-weight-bold text-black q-my-md">Panel de Control</h3>
-      <p class="text-h6 text-grey-7 q-mb-xl">
-        Bienvenido al Sistema de Gestión Empresarial. Seleccione un módulo para comenzar.
-      </p>
+      <div class="row items-center justify-between">
+        <div>
+          <h3 class="text-h4 text-weight-bold text-black q-my-md">Panel de Control</h3>
+          <p class="text-h6 text-grey-7 q-mb-xl">
+            Bienvenido al Sistema de Gestión Empresarial. Seleccione un módulo para comenzar.
+          </p>
+        </div>
+        <q-btn
+          color="primary"
+          icon="refresh"
+          label="Actualizar Datos"
+          @click="actualizarDatos"
+          outline
+        />
+      </div>
     </div>
 
     <!-- Cards de estadísticas principales -->
@@ -17,7 +28,9 @@
               <div>
                 <div class="text-h6 text-weight-bold">Empleados</div>
                 <div class="text-h4 text-[#0250DC] q-mt-sm">{{ stats.empleados }}</div>
-                <div class="text-caption text-grey-6">Empleados activos</div>
+                <div class="text-caption text-grey-6">
+                  {{ stats.empleados === 0 ? 'Sin empleados registrados' : 'Empleados activos' }}
+                </div>
               </div>
               <q-icon name="people" size="48px" style="color: #0250dc" />
             </div>
@@ -32,7 +45,9 @@
               <div>
                 <div class="text-h6 text-weight-bold">Boletas de Pago</div>
                 <div class="text-h4 text-[#f7bc20] q-mt-sm">{{ stats.boletas }}</div>
-                <div class="text-caption text-grey-6">Boletas generadas</div>
+                <div class="text-caption text-grey-6">
+                  {{ stats.boletas === 0 ? 'Sin boletas generadas' : 'Boletas generadas' }}
+                </div>
               </div>
               <q-icon name="receipt_long" size="48px" style="color: #f7bc20" />
             </div>
@@ -47,7 +62,13 @@
               <div>
                 <div class="text-h6 text-weight-bold">Prestaciones</div>
                 <div class="text-h4 text-[#f7bc20] q-mt-sm">{{ stats.prestaciones }}</div>
-                <div class="text-caption text-grey-6">Prestaciones pendientes</div>
+                <div class="text-caption text-grey-6">
+                  {{
+                    stats.prestaciones === 0
+                      ? 'Sin prestaciones pendientes'
+                      : 'Prestaciones pendientes'
+                  }}
+                </div>
               </div>
               <q-icon name="card_giftcard" size="48px" style="color: #f7bc20" />
             </div>
@@ -62,7 +83,9 @@
               <div>
                 <div class="text-h6 text-weight-bold">Ausencias</div>
                 <div class="text-h4 text-[#0250DC] q-mt-sm">{{ stats.ausencias }}</div>
-                <div class="text-caption text-grey-6">Por revisar</div>
+                <div class="text-caption text-grey-6">
+                  {{ stats.ausencias === 0 ? 'Sin ausencias pendientes' : 'Por revisar' }}
+                </div>
               </div>
               <q-icon name="event_busy" size="48px" style="color: #0250dc" />
             </div>
@@ -144,57 +167,125 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 
-// Datos de estadísticas principales
-const stats = ref({
-  empleados: 248,
-  boletas: 1543,
-  prestaciones: 12,
-  ausencias: 8,
+// Datos reactivos que se cargarán desde localStorage
+const empleados = ref([])
+const historialPrestaciones = ref([])
+const ausencias = ref([])
+
+// Función para cargar datos desde localStorage
+const cargarDatos = () => {
+  // Cargar empleados
+  const empleadosGuardados = localStorage.getItem('empleados')
+  empleados.value = empleadosGuardados ? JSON.parse(empleadosGuardados) : []
+
+  // Cargar historial de prestaciones
+  const prestacionesGuardadas = localStorage.getItem('historialPrestaciones')
+  historialPrestaciones.value = prestacionesGuardadas ? JSON.parse(prestacionesGuardadas) : []
+
+  // Cargar ausencias
+  const ausenciasGuardadas = localStorage.getItem('ausencias')
+  ausencias.value = ausenciasGuardadas ? JSON.parse(ausenciasGuardadas) : []
+
+  console.log('Datos cargados:', {
+    empleados: empleados.value.length,
+    prestaciones: historialPrestaciones.value.length,
+    ausencias: ausencias.value.length,
+  })
+}
+
+// Estadísticas calculadas dinámicamente
+const stats = computed(() => {
+  const ausenciasPendientes = ausencias.value.filter((a) => a.estado === 'Pendiente').length
+  const prestacionesPendientes = historialPrestaciones.value.filter(
+    (p) => p.estado === 'Pendiente',
+  ).length
+
+  return {
+    empleados: empleados.value.length,
+    boletas: historialPrestaciones.value.length, // Total de boletas generadas
+    prestaciones: prestacionesPendientes,
+    ausencias: ausenciasPendientes,
+  }
 })
 
-// Actividad reciente
-const recentActivity = ref([
-  {
+// Cargar datos al montar el componente
+onMounted(() => {
+  cargarDatos()
+})
+
+// Actividad reciente dinámica basada en datos reales
+const recentActivity = computed(() => {
+  const activities = []
+
+  // Agregar actividades de prestaciones recientes
+  const prestacionesRecientes = historialPrestaciones.value.slice(0, 2).map((p) => ({
     icon: 'receipt_long',
     color: 'green',
-    description: 'Nueva boleta de pago generada para Juan Pérez',
-    time: 'Hace 15 minutos',
-  },
-  {
+    description: `Nueva boleta de pago generada para ${p.empleado}`,
+    time: `${p.fecha}`,
+  }))
+
+  // Agregar actividades de empleados recientes (últimos 2)
+  const empleadosRecientes = empleados.value.slice(0, 1).map((e) => ({
     icon: 'person_add',
     color: 'primary',
-    description: 'Nuevo empleado registrado: María González',
-    time: 'Hace 1 hora',
-  },
-  {
-    icon: 'event_busy',
-    color: 'orange',
-    description: 'Solicitud de ausencia pendiente de aprobación',
-    time: 'Hace 2 horas',
-  },
-  {
-    icon: 'card_giftcard',
-    color: 'purple',
-    description: 'Prestación procesada para Carlos Ruiz',
-    time: 'Hace 3 horas',
-  },
-  {
-    icon: 'edit',
-    color: 'info',
-    description: 'Actualización de datos de empleado',
-    time: 'Hace 4 horas',
-  },
-])
+    description: `Empleado registrado: ${e.nombre}`,
+    time: 'Reciente',
+  }))
 
-// Resumen mensual
-const monthlyStats = ref({
-  nomina: 2450000,
-  nuevosEmpleados: 12,
-  ausenciasTotales: 45,
-  prestacionesPagadas: 8,
+  // Agregar actividades de ausencias pendientes
+  const ausenciasPendientes = ausencias.value
+    .filter((a) => a.estado === 'Pendiente')
+    .slice(0, 2)
+    .map((a) => ({
+      icon: 'event_busy',
+      color: 'orange',
+      description: `Solicitud de ausencia de ${a.empleado} pendiente`,
+      time: `${a.fechaInicio}`,
+    }))
+
+  // Combinar todas las actividades
+  activities.push(...prestacionesRecientes, ...empleadosRecientes, ...ausenciasPendientes)
+
+  // Si no hay actividades, mostrar mensaje por defecto
+  if (activities.length === 0) {
+    return [
+      {
+        icon: 'info',
+        color: 'grey',
+        description: 'No hay actividad reciente',
+        time: 'Sistema iniciado',
+      },
+    ]
+  }
+
+  return activities.slice(0, 5) // Mostrar máximo 5 actividades
 })
+
+// Resumen mensual dinámico
+const monthlyStats = computed(() => {
+  const totalNomina = historialPrestaciones.value.reduce((sum, p) => sum + (p.monto || 0), 0)
+  const nuevosEmpleados = empleados.value.length // Simplificado - en un sistema real sería por mes
+  const ausenciasTotales = ausencias.value.length
+  const prestacionesPagadas = historialPrestaciones.value.filter(
+    (p) => p.estado === 'Pagado',
+  ).length
+
+  return {
+    nomina: totalNomina,
+    nuevosEmpleados: nuevosEmpleados,
+    ausenciasTotales: ausenciasTotales,
+    prestacionesPagadas: prestacionesPagadas,
+  }
+})
+
+// Función para actualizar datos manualmente
+const actualizarDatos = () => {
+  cargarDatos()
+  console.log('Datos actualizados desde localStorage')
+}
 </script>
 
 <style scoped>
